@@ -1,5 +1,6 @@
 package com.demo.clinic.controller;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Optional;
@@ -57,8 +58,15 @@ public class VisitController {
             log.info(holidayRepository.findByHoliday(visitTime)+"");
 
             if (holidayRepository.findByHoliday(visitTime).size() > 0) {
-                log.error("It's a holiday");
-                Message message = new Message("It's a holiday");
+                log.error("Visit day is a holiday");
+                Message message = new Message("Visit day is a holiday");
+                return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+            }
+
+            Date createdDate = sdf.parse(sdf.format(createdTime));
+            if (holidayRepository.findByHoliday(createdDate).size() > 0) {
+                log.error("Today is a holiday.");
+                Message message = new Message("Today is a holiday.");
                 return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
             }
 
@@ -97,12 +105,40 @@ public class VisitController {
     }
 
     @PutMapping("/visits/{id}")
-    public ResponseEntity<Visit> updateVisit(@PathVariable("id") long id, @RequestBody Visit visit) {
+    public ResponseEntity<Object> updateVisit(@PathVariable("id") long id, @RequestBody Visit visit) {
         Optional<Visit> visitToUpdate = visitRepository.findById(id);
 
         if (visitToUpdate.isPresent()) {
             long currentTimeMillis = System.currentTimeMillis();
             Date modifiedTime = new Date(currentTimeMillis);
+
+            Date visitTime = null;
+            try {
+                visitTime = sdf.parse(sdf.format(visit.getVisitTime()));
+            } catch (ParseException e) {
+                log.error("Parsing error", e);
+            }
+            log.info("Visit: " + visitTime);
+            log.info(holidayRepository.findByHoliday(visitTime)+"");
+
+            if (holidayRepository.findByHoliday(visitTime).size() > 0) {
+                log.error("Visit day is a holiday");
+                Message message = new Message("Visit day is a holiday");
+                return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+            }
+
+            Date modifiedDate = null;
+            try {
+                modifiedDate = sdf.parse(sdf.format(modifiedTime));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+            if (holidayRepository.findByHoliday(modifiedDate).size() > 0) {
+                log.error("Today is a holiday, you can't modify.");
+                Message message = new Message("Today is a holiday, you can't modify.");
+                return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+            }
 
             Visit _visit = visitToUpdate.get();
             _visit.setVisitTime(visit.getVisitTime());
@@ -117,8 +153,23 @@ public class VisitController {
     }
 
     @DeleteMapping("/visits/{id}")
-    public ResponseEntity<HttpStatus> deleteVisit(@PathVariable("id") long id) {
+    public ResponseEntity<Object> deleteVisit(@PathVariable("id") long id) {
         try {
+            long currentTimeMillis = System.currentTimeMillis();
+
+            Date currentDate = null;
+            try {
+                currentDate = sdf.parse(sdf.format(new Date(currentTimeMillis)));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+            if (holidayRepository.findByHoliday(currentDate).size() > 0) {
+                log.error("Today is a holiday, you can't delete.");
+                Message message = new Message("Today is a holiday, you can't delete.");
+                return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+            }
+
             visitRepository.deleteById(id);
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         } catch (Exception e) {
